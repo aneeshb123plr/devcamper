@@ -1,0 +1,20 @@
+{
+  "name": "devcamper-api",
+  "version": "1.0.0",
+  "description": "Bootcamp API",
+  "main": "server.js",
+  "scripts": {
+    "start": "set NODE_ENV=production&&node server.js",
+    "dev": "nodemon server.js"
+  },
+  "author": "Aneesh B",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^8.2.0",
+    "express": "^4.17.1",
+    "morgan": "^1.10.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.2"
+  }
+}
