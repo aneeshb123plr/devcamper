@@ -1,13 +1,17 @@
+const path = require("path");
 const express = require("express");
 const dotenv = require("dotenv");
+const fileupload = require("express-fileupload");
+// Setting configuration
+dotenv.config({ path: "./config/config.env" });
+
 const app = express();
 const bootcamps = require("./routes/bootcamps");
+const courses = require("./routes/courses");
 const logger = require("morgan");
 const connectDB = require("./config/db");
 require("colors");
-
-// Setting configuration
-dotenv.config({ path: "./config/config.env" });
+const errorHandler = require("./middleware/error");
 
 // Mongo db connection
 
@@ -20,9 +24,18 @@ const PORT = process.env.PORT;
 
 app.use(logger("combined"));
 app.use(express.json());
+app.use(fileupload());
+
+// Static file
+
+app.use(express.static(path.join(__dirname, "public")));
 
 // Mouting Routes
 app.use("/api/v1/bootcamps", bootcamps);
+app.use("/api/v1/courses", courses);
+
+// Error handler
+app.use(errorHandler);
 
 // server listen
 const server = app.listen(
