@@ -37,6 +37,11 @@ const CourseSchema = new Schema({
     ref: "Bootcamp",
     required: true,
   },
+  user: {
+    type: Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
 });
 
 CourseSchema.statics.getAverageCost = async function (bootcampId) {

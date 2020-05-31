@@ -11,23 +11,16 @@ const asyncHandler = require("../middleware/async");
 */
 
 exports.getCourses = asyncHandler(async (req, res, next) => {
-  let query;
   if (req.params.bootcampId) {
-    query = Course.find({ bootcamp: req.params.bootcampId });
-  } else {
-    query = Course.find().populate({
-      path: "bootcamp",
-      select: "name description",
+    courses = await Course.find({ bootcamp: req.params.bootcampId });
+    return res.status(200).json({
+      success: true,
+      count: courses.length,
+      data: courses,
     });
+  } else {
+    res.status(200).json(res.advancedResult);
   }
-
-  const courses = await query;
-
-  res.status(200).json({
-    success: true,
-    count: courses.length,
-    data: courses,
-  });
 });
 
 /* 
@@ -60,6 +53,7 @@ exports.getCourse = asyncHandler(async (req, res, next) => {
 
 exports.addCourse = asyncHandler(async (req, res, next) => {
   req.body.bootcamp = req.params.bootcampId;
+  req.body.user = req.user.id;
 
   const bootcamp = await Bootcamp.findById(req.params.bootcampId);
 
@@ -68,6 +62,15 @@ exports.addCourse = asyncHandler(async (req, res, next) => {
       new ErrorResponse(
         `The bootcamp is not present with id ${req.params.bootcampId}`,
         404
+      )
+    );
+  }
+  // Check the eligibility
+  if (bootcamp.user.toString() !== req.user.id && req.user.role !== "admin") {
+    return next(
+      new ErrorResponse(
+        `The user ${req.user.id} has no permission to add a course to the bootcamp ${bootcamp._id}`,
+        400
       )
     );
   }
@@ -87,16 +90,27 @@ exports.addCourse = asyncHandler(async (req, res, next) => {
 */
 
 exports.updateCourse = asyncHandler(async (req, res, next) => {
-  const course = await Course.findByIdAndUpdate(req.params.id, req.body, {
-    new: true,
-    runValidators: true,
-  });
+  let course = await Course.findById(req.params.id);
   if (!course) {
     return next(
       new ErrorResponse(`The course is not present with ${req.params.id}`, 404)
     );
   }
 
+  // Check the eligibility
+  if (course.user.toString() !== req.user.id && req.user.role !== "admin") {
+    return next(
+      new ErrorResponse(
+        `The user ${req.user.id} has no permission to update a course to the bootcamp ${course.bootcamp}`,
+        400
+      )
+    );
+  }
+
+  course = await Course.findByIdAndUpdate(req.params.id, req.body, {
+    new: true,
+    runValidators: true,
+  });
   res.status(200).json({
     success: true,
     data: course,
@@ -114,6 +128,16 @@ exports.deleteCourse = asyncHandler(async (req, res, next) => {
   if (!course) {
     return next(
       new ErrorResponse(`The course is not present with ${req.params.id}`, 404)
+    );
+  }
+
+  // Check the eligibility
+  if (course.user.toString() !== req.user.id && req.user.role !== "admin") {
+    return next(
+      new ErrorResponse(
+        `The user ${req.user.id} has no permission to delete a course to the bootcamp ${course.bootcamp}`,
+        400
+      )
     );
   }
 

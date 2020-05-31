@@ -9,78 +9,7 @@ const geocoder = require("../utils/geocoder");
 @access Public
 */
 exports.getBootCamps = asyncHandler(async (req, res, next) => {
-  let query;
-
-  // copy queryParams
-  let queryParms = { ...req.query };
-
-  // initialize remove field array
-  let removeField = ["select", "sort", "page", "limit"];
-
-  // removing select, sort etc from queryparams
-  removeField.forEach((param) => delete queryParms[param]);
-
-  // Add lte,lt etc to queryString
-  let queryStr = JSON.stringify(queryParms);
-  queryStr = queryStr.replace(
-    /\b(lt|lte|gt|gte|in)\b/gi,
-    (match) => `$${match}`
-  );
-
-  console.log(queryStr);
-
-  // Create query
-  query = Bootcamp.find(JSON.parse(queryStr)).populate("courses");
-
-  // Add select
-  if (req.query.select) {
-    const fields = req.query.select.split(",").join(" ");
-    query = query.select(fields);
-  }
-
-  // Add sort
-
-  if (req.query.sort) {
-    const sortBy = req.query.sort.split(",").join(" ");
-    query = query.sort(sortBy);
-  } else {
-    query = query.sort("-createdAt");
-  }
-
-  // pagination
-
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 25;
-  const startIndex = (page - 1) * limit;
-  const endIndex = page * limit;
-  const total = await Bootcamp.countDocuments();
-
-  query = query.skip(startIndex).limit(limit);
-
-  // Execute query
-  const bootcamps = await query;
-
-  let pagination = {};
-
-  if (endIndex < total) {
-    pagination.next = {
-      page: page + 1,
-      limit,
-    };
-  }
-  if (startIndex > 0) {
-    pagination.prev = {
-      page: page - 1,
-      limit,
-    };
-  }
-
-  res.status(200).json({
-    success: true,
-    count: bootcamps.length,
-    pagination,
-    data: bootcamps,
-  });
+  res.status(200).json(res.advancedResult);
 });
 
 /* 
@@ -107,6 +36,23 @@ exports.getBootCamp = asyncHandler(async (req, res, next) => {
 @access Private
 */
 exports.createBootCamp = asyncHandler(async (req, res, next) => {
+  // Add user to req.body
+  req.body.user = req.user.id;
+
+  // Get published bootcamp
+
+  const publishedBootcamp = await Bootcamp.findOne({ user: req.user.id });
+
+  // Check the eligibility to add
+  if (publishedBootcamp && req.user.role !== "admin") {
+    return next(
+      new ErrorResponse(
+        `The user ${req.user.id} has no permission to add bootcamp`,
+        400
+      )
+    );
+  }
+
   const bootcamp = await Bootcamp.create(req.body);
   res.status(201).json({
     success: true,
@@ -120,10 +66,7 @@ exports.createBootCamp = asyncHandler(async (req, res, next) => {
 @access Private
 */
 exports.updateBootCamp = asyncHandler(async (req, res, next) => {
-  const bootcamp = await Bootcamp.findByIdAndUpdate(req.params.id, req.body, {
-    new: true,
-    runValidators: true,
-  });
+  let bootcamp = await Bootcamp.findById(req.params.id);
   if (!bootcamp) {
     return next(
       new ErrorResponse(
@@ -132,6 +75,21 @@ exports.updateBootCamp = asyncHandler(async (req, res, next) => {
       )
     );
   }
+
+  // Check the permission
+  if (bootcamp.user.toString() !== req.user.id && req.user.role !== "admin") {
+    return next(
+      new ErrorResponse(
+        `The user with ${req.user.id} has no permission to update the bootcamp`,
+        400
+      )
+    );
+  }
+  bootcamp = await Bootcamp.findByIdAndUpdate(req.params.id, req.body, {
+    new: true,
+    runValidators: true,
+  });
+
   res.status(200).json({ success: true, data: bootcamp });
 });
 
@@ -147,6 +105,16 @@ exports.deleteBootCamp = asyncHandler(async (req, res, next) => {
       new ErrorResponse(
         `The Bootcammp is not found with the id ${req.params.id}`,
         404
+      )
+    );
+  }
+
+  // Check the permission
+  if (bootcamp.user.toString() !== req.user.id && req.user.role !== "admin") {
+    return next(
+      new ErrorResponse(
+        `The user with ${req.user.id} has no permission to update the bootcamp`,
+        400
       )
     );
   }
@@ -200,6 +168,16 @@ exports.bootcampPhotoUpload = asyncHandler(async (req, res, next) => {
       new ErrorResponse(
         `The Bootcamp is not found with the id ${req.params.id}`,
         404
+      )
+    );
+  }
+
+  // Check the permission
+  if (bootcamp.user.toString() !== req.user.id && req.user.role !== "admin") {
+    return next(
+      new ErrorResponse(
+        `The user with ${req.user.id} has no permission to update the bootcamp`,
+        400
       )
     );
   }
